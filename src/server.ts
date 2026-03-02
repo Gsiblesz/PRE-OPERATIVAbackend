@@ -81,8 +81,11 @@ app.get("/api/inspecciones-preoperativas", async (req, res) => {
     const rows = (await sql`
       SELECT id, fecha, area, evaluacion_equipos, created_at
       FROM inspecciones_preoperativas
+      WHERE (${area} = '' OR area = ${area})
+        AND (${from} = '' OR fecha >= ${from}::date)
+        AND (${to} = '' OR fecha <= ${to}::date)
       ORDER BY fecha DESC, created_at DESC
-      LIMIT 500
+      LIMIT 2000
     `) as InspeccionRow[];
 
     const normalizedRows = rows.map((row) => ({
@@ -95,14 +98,7 @@ app.get("/api/inspecciones-preoperativas", async (req, res) => {
         typeof row.created_at === "string" ? row.created_at : row.created_at.toISOString(),
     }));
 
-    const filtered = normalizedRows.filter((row) => {
-      if (area && row.area !== area) return false;
-      if (from && row.fecha < from) return false;
-      if (to && row.fecha > to) return false;
-      return true;
-    });
-
-    return res.status(200).json({ ok: true, count: filtered.length, data: filtered });
+    return res.status(200).json({ ok: true, count: normalizedRows.length, data: normalizedRows });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Error interno al consultar inspecciones" });
