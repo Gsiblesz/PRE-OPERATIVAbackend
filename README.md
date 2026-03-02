@@ -34,6 +34,7 @@ backend/
 
 - `GET /health`
 - `POST /api/inspecciones-preoperativas`
+- `GET /api/inspecciones-preoperativas` (protegido con header `x-results-password`)
 
 ## Deploy en Render
 
@@ -43,6 +44,7 @@ backend/
   - `DATABASE_URL`
   - `PORT` (Render la inyecta automáticamente, opcional en panel)
   - `CORS_ORIGIN=https://tu-frontend.vercel.app`
+   - `RESULTS_PASSWORD=PaolaLoca`
 
 ## Base de datos Neon
 
