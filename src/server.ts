@@ -23,13 +23,43 @@ const corsOrigin = process.env.CORS_ORIGIN ?? "*";
 const databaseUrl = process.env.DATABASE_URL;
 const resultsPassword = process.env.RESULTS_PASSWORD ?? "PaolaLoca";
 
+const normalizeOrigin = (value: string) => value.replace(/\/$/, "").trim();
+
+const allowedOrigins = corsOrigin
+  .split(",")
+  .map((origin) => normalizeOrigin(origin))
+  .filter(Boolean);
+
 if (!databaseUrl) {
   throw new Error("Falta la variable de entorno DATABASE_URL");
 }
 
 const sql = neon(databaseUrl);
 
-app.use(cors({ origin: corsOrigin }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedRequestOrigin = normalizeOrigin(origin);
+
+      if (allowedOrigins.includes("*")) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.includes(normalizedRequestOrigin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origen no permitido por CORS"));
+    },
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => {
