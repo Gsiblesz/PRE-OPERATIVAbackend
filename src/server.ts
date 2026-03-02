@@ -6,6 +6,7 @@ import { neon } from "@neondatabase/serverless";
 type Body = {
   fecha?: string;
   area: string;
+  responsable?: string;
   evaluacion_equipos: unknown;
 };
 
@@ -19,6 +20,11 @@ type InspeccionRow = {
   area: string;
   evaluacion_equipos: unknown;
   created_at: string | Date;
+};
+
+type EvaluacionNormalizada = {
+  responsable: string;
+  evaluacion_equipos: unknown[];
 };
 
 const app = express();
@@ -39,6 +45,28 @@ if (!databaseUrl) {
 }
 
 const sql = neon(databaseUrl);
+
+const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
+  if (Array.isArray(value)) {
+    return {
+      responsable: "",
+      evaluacion_equipos: value,
+    };
+  }
+
+  if (value && typeof value === "object") {
+    const asObject = value as { responsable?: unknown; equipos?: unknown };
+    return {
+      responsable: typeof asObject.responsable === "string" ? asObject.responsable : "",
+      evaluacion_equipos: Array.isArray(asObject.equipos) ? asObject.equipos : [],
+    };
+  }
+
+  return {
+    responsable: "",
+    evaluacion_equipos: [],
+  };
+};
 
 app.use(
   cors({
@@ -92,15 +120,20 @@ app.get("/api/inspecciones-preoperativas", async (req, res) => {
       LIMIT 2000
     `) as InspeccionRow[];
 
-    const normalizedRows = rows.map((row) => ({
-      ...row,
-      fecha:
-        typeof row.fecha === "string"
-          ? row.fecha.slice(0, 10)
-          : row.fecha.toISOString().slice(0, 10),
-      created_at:
-        typeof row.created_at === "string" ? row.created_at : row.created_at.toISOString(),
-    }));
+    const normalizedRows = rows.map((row) => {
+      const parsed = normalizeEvaluacion(row.evaluacion_equipos);
+      return {
+        ...row,
+        responsable: parsed.responsable,
+        evaluacion_equipos: parsed.evaluacion_equipos,
+        fecha:
+          typeof row.fecha === "string"
+            ? row.fecha.slice(0, 10)
+            : row.fecha.toISOString().slice(0, 10),
+        created_at:
+          typeof row.created_at === "string" ? row.created_at : row.created_at.toISOString(),
+      };
+    });
 
     return res.status(200).json({ ok: true, count: normalizedRows.length, data: normalizedRows });
   } catch (error) {
@@ -120,10 +153,14 @@ app.post("/api/inspecciones-preoperativas", async (req, res) => {
     }
 
     const fecha = body.fecha ?? new Date().toISOString().slice(0, 10);
+    const evaluacionJson = {
+      responsable: typeof body.responsable === "string" ? body.responsable.trim() : "",
+      equipos: body.evaluacion_equipos,
+    };
 
     const rows = await sql`
       INSERT INTO inspecciones_preoperativas (fecha, area, evaluacion_equipos)
-      VALUES (${fecha}::date, ${body.area}, ${JSON.stringify(body.evaluacion_equipos)}::jsonb)
+      VALUES (${fecha}::date, ${body.area}, ${JSON.stringify(evaluacionJson)}::jsonb)
       RETURNING id, fecha, area, evaluacion_equipos, created_at
     `;
 
