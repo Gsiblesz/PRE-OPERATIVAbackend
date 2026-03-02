@@ -9,6 +9,10 @@ type Body = {
   evaluacion_equipos: unknown;
 };
 
+type DeleteBody = {
+  ids: string[];
+};
+
 type InspeccionRow = {
   id: string;
   fecha: string | Date;
@@ -127,6 +131,44 @@ app.post("/api/inspecciones-preoperativas", async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Error interno al guardar la inspección" });
+  }
+});
+
+app.delete("/api/inspecciones-preoperativas", async (req, res) => {
+  try {
+    const providedPassword = req.header("x-results-password");
+
+    if (!providedPassword || providedPassword !== resultsPassword) {
+      return res.status(401).json({ error: "No autorizado" });
+    }
+
+    const body = req.body as DeleteBody;
+    const ids = Array.isArray(body?.ids)
+      ? body.ids.filter((id) => typeof id === "string" && id.trim() !== "")
+      : [];
+
+    if (ids.length === 0) {
+      return res.status(400).json({ error: "Debes enviar al menos un id para eliminar" });
+    }
+
+    if (ids.length > 200) {
+      return res.status(400).json({ error: "Máximo 200 registros por eliminación" });
+    }
+
+    const idsJson = JSON.stringify(ids);
+
+    const rows = await sql`
+      DELETE FROM inspecciones_preoperativas
+      WHERE id IN (
+        SELECT jsonb_array_elements_text(${idsJson}::jsonb)::uuid
+      )
+      RETURNING id
+    `;
+
+    return res.status(200).json({ ok: true, deletedCount: rows.length });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Error interno al eliminar inspecciones" });
   }
 });
 
