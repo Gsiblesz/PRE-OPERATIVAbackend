@@ -114,8 +114,8 @@ app.get("/api/inspecciones-preoperativas", async (req, res) => {
       SELECT id, fecha, area, evaluacion_equipos, created_at
       FROM inspecciones_preoperativas
       WHERE (${area} = '' OR area = ${area})
-        AND (${from} = '' OR fecha >= ${from}::date)
-        AND (${to} = '' OR fecha <= ${to}::date)
+        AND (NULLIF(${from}, '') IS NULL OR fecha >= NULLIF(${from}, '')::date)
+        AND (NULLIF(${to}, '') IS NULL OR fecha <= NULLIF(${to}, '')::date)
       ORDER BY fecha DESC, created_at DESC
       LIMIT 2000
     `) as InspeccionRow[];
