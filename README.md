@@ -49,3 +49,15 @@ backend/
 ## Base de datos Neon
 
 Ejecuta el script `database/inspecciones_preoperativas.sql` en el SQL Editor de Neon.
+
+### Datos de prueba para gráficas
+
+Para poblar la tabla con muchos registros de distintas fechas (enero-abril 2026), ejecuta también:
+
+- `database/seed_inspecciones_prueba.sql`
+
+Ese script:
+
+- elimina datos previos de prueba en ese rango de fechas,
+- inserta inspecciones diarias para `Panadería`, `Hojaldre` y `Área de donas`,
+- mezcla estados `conforme` y `no_conforme` con observaciones.
