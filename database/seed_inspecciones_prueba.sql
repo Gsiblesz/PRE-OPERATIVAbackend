@@ -122,7 +122,8 @@ SELECT
         )
       )
     END
-  ) AS evaluacion_equipos;
+  ) AS evaluacion_equipos
+FROM base b;
 
 -- Verificación rápida
 -- SELECT area, COUNT(*) AS registros, MIN(fecha) AS desde, MAX(fecha) AS hasta
