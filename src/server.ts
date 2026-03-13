@@ -11,9 +11,15 @@ type Body = {
   hisopado_aplica?: boolean;
   hisopado_tipo?: string;
   hisopado_detalle?: string;
+  hisopados?: unknown;
   hisopadoAplica?: boolean;
   hisopadoTipo?: string;
   hisopadoDetalle?: string;
+};
+
+type HisopadoNormalizado = {
+  tipo: string;
+  detalle: string;
 };
 
 type DeleteBody = {
@@ -32,8 +38,7 @@ type EvaluacionNormalizada = {
   responsable: string;
   evaluacion_equipos: unknown[];
   hisopado_aplica: boolean;
-  hisopado_tipo: string;
-  hisopado_detalle: string;
+  hisopados: HisopadoNormalizado[];
 };
 
 const app = express();
@@ -55,14 +60,30 @@ if (!databaseUrl) {
 
 const sql = neon(databaseUrl);
 
+const normalizarHisopados = (value: unknown): HisopadoNormalizado[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const asObject = item as { tipo?: unknown; detalle?: unknown };
+
+      const tipo = typeof asObject.tipo === "string" ? asObject.tipo.trim() : "";
+      const detalle = typeof asObject.detalle === "string" ? asObject.detalle.trim() : "";
+
+      return { tipo, detalle };
+    })
+    .filter((item): item is HisopadoNormalizado => Boolean(item && item.tipo && item.detalle))
+    .slice(0, 3);
+};
+
 const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
   if (Array.isArray(value)) {
     return {
       responsable: "",
       evaluacion_equipos: value,
       hisopado_aplica: false,
-      hisopado_tipo: "",
-      hisopado_detalle: "",
+      hisopados: [],
     };
   }
 
@@ -76,6 +97,7 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
       hisopadoTipo?: unknown;
       hisopado_detalle?: unknown;
       hisopadoDetalle?: unknown;
+      hisopados?: unknown;
     };
 
     const hisopadoAplica =
@@ -85,26 +107,31 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
           ? asObject.hisopadoAplica
           : false;
 
-    const hisopadoDetalle =
+    const hisopadoDetalleLegacy =
       typeof asObject.hisopado_detalle === "string"
         ? asObject.hisopado_detalle
         : typeof asObject.hisopadoDetalle === "string"
           ? asObject.hisopadoDetalle
           : "";
 
-    const hisopadoTipo =
+    const hisopadoTipoLegacy =
       typeof asObject.hisopado_tipo === "string"
         ? asObject.hisopado_tipo
         : typeof asObject.hisopadoTipo === "string"
           ? asObject.hisopadoTipo
           : "";
 
+    const hisopados = normalizarHisopados(asObject.hisopados);
+    const fallbackHisopados =
+      hisopadoAplica && hisopadoTipoLegacy.trim() && hisopadoDetalleLegacy.trim()
+        ? [{ tipo: hisopadoTipoLegacy.trim(), detalle: hisopadoDetalleLegacy.trim() }]
+        : [];
+
     return {
       responsable: typeof asObject.responsable === "string" ? asObject.responsable : "",
       evaluacion_equipos: Array.isArray(asObject.equipos) ? asObject.equipos : [],
       hisopado_aplica: hisopadoAplica,
-      hisopado_tipo: hisopadoTipo,
-      hisopado_detalle: hisopadoDetalle,
+      hisopados: hisopados.length > 0 ? hisopados : fallbackHisopados,
     };
   }
 
@@ -112,8 +139,7 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
     responsable: "",
     evaluacion_equipos: [],
     hisopado_aplica: false,
-    hisopado_tipo: "",
-    hisopado_detalle: "",
+    hisopados: [],
   };
 };
 
@@ -176,8 +202,7 @@ app.get("/api/inspecciones-preoperativas", async (req, res) => {
         responsable: parsed.responsable,
         evaluacion_equipos: parsed.evaluacion_equipos,
         hisopado_aplica: parsed.hisopado_aplica,
-        hisopado_tipo: parsed.hisopado_tipo,
-        hisopado_detalle: parsed.hisopado_detalle,
+        hisopados: parsed.hisopados,
         fecha:
           typeof row.fecha === "string"
             ? row.fecha.slice(0, 10)
@@ -205,27 +230,40 @@ app.post("/api/inspecciones-preoperativas", async (req, res) => {
     }
 
     const fecha = body.fecha ?? new Date().toISOString().slice(0, 10);
+    const hisopadosBody = normalizarHisopados(body.hisopados);
+    const hisopadoAplicaBody =
+      typeof body.hisopado_aplica === "boolean"
+        ? body.hisopado_aplica
+        : typeof body.hisopadoAplica === "boolean"
+          ? body.hisopadoAplica
+          : false;
+
+    const hisopadoTipoLegacy =
+      typeof body.hisopado_tipo === "string"
+        ? body.hisopado_tipo.trim()
+        : typeof body.hisopadoTipo === "string"
+          ? body.hisopadoTipo.trim()
+          : "";
+
+    const hisopadoDetalleLegacy =
+      typeof body.hisopado_detalle === "string"
+        ? body.hisopado_detalle.trim()
+        : typeof body.hisopadoDetalle === "string"
+          ? body.hisopadoDetalle.trim()
+          : "";
+
+    const hisopadosFinal =
+      hisopadosBody.length > 0
+        ? hisopadosBody
+        : hisopadoAplicaBody && hisopadoTipoLegacy && hisopadoDetalleLegacy
+          ? [{ tipo: hisopadoTipoLegacy, detalle: hisopadoDetalleLegacy }]
+          : [];
+
     const evaluacionJson = {
       responsable: typeof body.responsable === "string" ? body.responsable.trim() : "",
       equipos: body.evaluacion_equipos,
-      hisopado_aplica:
-        typeof body.hisopado_aplica === "boolean"
-          ? body.hisopado_aplica
-          : typeof body.hisopadoAplica === "boolean"
-            ? body.hisopadoAplica
-            : false,
-      hisopado_tipo:
-        typeof body.hisopado_tipo === "string"
-          ? body.hisopado_tipo.trim()
-          : typeof body.hisopadoTipo === "string"
-            ? body.hisopadoTipo.trim()
-            : "",
-      hisopado_detalle:
-        typeof body.hisopado_detalle === "string"
-          ? body.hisopado_detalle.trim()
-          : typeof body.hisopadoDetalle === "string"
-            ? body.hisopadoDetalle.trim()
-            : "",
+      hisopado_aplica: hisopadosFinal.length > 0,
+      hisopados: hisopadosFinal,
     };
 
     const rows = await sql`
