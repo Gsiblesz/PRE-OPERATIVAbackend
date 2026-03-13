@@ -9,8 +9,10 @@ type Body = {
   responsable?: string;
   evaluacion_equipos: unknown;
   hisopado_aplica?: boolean;
+  hisopado_tipo?: string;
   hisopado_detalle?: string;
   hisopadoAplica?: boolean;
+  hisopadoTipo?: string;
   hisopadoDetalle?: string;
 };
 
@@ -30,6 +32,7 @@ type EvaluacionNormalizada = {
   responsable: string;
   evaluacion_equipos: unknown[];
   hisopado_aplica: boolean;
+  hisopado_tipo: string;
   hisopado_detalle: string;
 };
 
@@ -58,6 +61,7 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
       responsable: "",
       evaluacion_equipos: value,
       hisopado_aplica: false,
+      hisopado_tipo: "",
       hisopado_detalle: "",
     };
   }
@@ -68,6 +72,8 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
       equipos?: unknown;
       hisopado_aplica?: unknown;
       hisopadoAplica?: unknown;
+      hisopado_tipo?: unknown;
+      hisopadoTipo?: unknown;
       hisopado_detalle?: unknown;
       hisopadoDetalle?: unknown;
     };
@@ -86,10 +92,18 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
           ? asObject.hisopadoDetalle
           : "";
 
+    const hisopadoTipo =
+      typeof asObject.hisopado_tipo === "string"
+        ? asObject.hisopado_tipo
+        : typeof asObject.hisopadoTipo === "string"
+          ? asObject.hisopadoTipo
+          : "";
+
     return {
       responsable: typeof asObject.responsable === "string" ? asObject.responsable : "",
       evaluacion_equipos: Array.isArray(asObject.equipos) ? asObject.equipos : [],
       hisopado_aplica: hisopadoAplica,
+      hisopado_tipo: hisopadoTipo,
       hisopado_detalle: hisopadoDetalle,
     };
   }
@@ -98,6 +112,7 @@ const normalizeEvaluacion = (value: unknown): EvaluacionNormalizada => {
     responsable: "",
     evaluacion_equipos: [],
     hisopado_aplica: false,
+    hisopado_tipo: "",
     hisopado_detalle: "",
   };
 };
@@ -161,6 +176,7 @@ app.get("/api/inspecciones-preoperativas", async (req, res) => {
         responsable: parsed.responsable,
         evaluacion_equipos: parsed.evaluacion_equipos,
         hisopado_aplica: parsed.hisopado_aplica,
+        hisopado_tipo: parsed.hisopado_tipo,
         hisopado_detalle: parsed.hisopado_detalle,
         fecha:
           typeof row.fecha === "string"
@@ -198,6 +214,12 @@ app.post("/api/inspecciones-preoperativas", async (req, res) => {
           : typeof body.hisopadoAplica === "boolean"
             ? body.hisopadoAplica
             : false,
+      hisopado_tipo:
+        typeof body.hisopado_tipo === "string"
+          ? body.hisopado_tipo.trim()
+          : typeof body.hisopadoTipo === "string"
+            ? body.hisopadoTipo.trim()
+            : "",
       hisopado_detalle:
         typeof body.hisopado_detalle === "string"
           ? body.hisopado_detalle.trim()
